@@ -30,17 +30,33 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Make node available to Xcode scripts
+      - name: Setup node for Xcode
         run: |
           NODE_PATH=$(which node)
-          echo "Node found at: $NODE_PATH"
-          sudo ln -sf "$NODE_PATH" /usr/local/bin/node
-          sudo ln -sf $(which npm) /usr/local/bin/npm
+          echo "Node: $NODE_PATH"
           node --version
+          sudo ln -sf "$NODE_PATH" /usr/local/bin/node
+          sudo ln -sf "$(which npm)" /usr/local/bin/npm
 
-      - name: Build iOS app (ad-hoc self-signed)
+      - name: Test bundle script manually
+        run: |
+          cd ios
+          echo "--- Testing bundler ---"
+          export NODE_BINARY=/usr/local/bin/node
+          export PLATFORM_NAME=iphoneos
+          export CONFIGURATION=Release
+          export SRCROOT=$(pwd)
+          export BUILT_PRODUCTS_DIR=/tmp/products
+          export TARGET_NAME=CallShield
+          export UNLOCALIZED_RESOURCES_FOLDER_PATH=CallShield.app
+          mkdir -p /tmp/products/CallShield.app
+          bash ../node_modules/react-native/scripts/react-native-xcode.sh 2>&1 | tail -30
+          echo "Bundle script exit: $?"
+
+      - name: Build iOS app
         run: |
           set -o pipefail
+          export NODE_BINARY=/usr/local/bin/node
           xcodebuild \
             -workspace ios/CallShield.xcworkspace \
             -scheme CallShield \
@@ -51,8 +67,8 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
-            archive 2>&1 | tee /tmp/build.log | tail -50
-          echo "--- Checking archive ---"
+            NODE_BINARY=/usr/local/bin/node \
+            archive 2>&1 | tee /tmp/build.log
           ls /tmp/CallShield.xcarchive/Products/Applications/
 
       - name: Package as IPA
