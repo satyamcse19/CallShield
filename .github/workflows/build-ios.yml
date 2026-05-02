@@ -41,14 +41,17 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            build-for-testing 2>&1 | tail -20
+            build
 
       - name: Package as IPA
         run: |
+          APP_PATH="DerivedData/Build/Products/Release-iphoneos/CallShield.app"
+          echo "App path: $APP_PATH"
+          ls "$APP_PATH"
+          echo "Info.plist check:"
+          ls "$APP_PATH/Info.plist"
           mkdir -p Payload
-          APP_PATH=$(find DerivedData -name "*.app" -not -path "*/PlugIns/*" | head -1)
-          echo "Found app: $APP_PATH"
-          cp -r "$APP_PATH" Payload/
+          cp -r "$APP_PATH" Payload/CallShield.app
           zip -r CallShield-unsigned.ipa Payload/
           echo "IPA created successfully"
 
