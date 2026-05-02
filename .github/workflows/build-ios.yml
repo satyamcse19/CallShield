@@ -65,15 +65,24 @@ jobs:
             archive 2>&1 | tee /tmp/build.log | tail -20
           ls /tmp/CallShield.xcarchive/Products/Applications/
 
+      - name: Verify extension built
+        run: |
+          APP_PATH="/tmp/CallShield.xcarchive/Products/Applications/CallShield.app"
+          echo "=== PlugIns directory ==="
+          ls "$APP_PATH/PlugIns/" 2>/dev/null || echo "NO PLUGINS DIRECTORY FOUND"
+          echo "=== Extension ==="
+          ls "$APP_PATH/PlugIns/CallShieldExtension.appex/" 2>/dev/null || echo "EXTENSION NOT FOUND"
+          echo "=== Xcode project has extension? ==="
+          grep -c "CallShieldExtension" ios/CallShield.xcodeproj/project.pbxproj || echo "0"
+
       - name: Inject bundle into app
         run: |
           APP_PATH="/tmp/CallShield.xcarchive/Products/Applications/CallShield.app"
           echo "Copying bundle into app..."
           cp /tmp/main.jsbundle "$APP_PATH/main.jsbundle"
-          # Copy assets
           cp -r /tmp/expo-dist/assets "$APP_PATH/assets" 2>/dev/null || true
           echo "App contents:"
-          ls "$APP_PATH" | grep -E "(jsbundle|assets)"
+          ls "$APP_PATH" | grep -E "(jsbundle|assets|PlugIns)"
 
       - name: Package as IPA
         run: |
