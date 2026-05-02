@@ -193,7 +193,7 @@ function addExtension(proj, mainBundleId) {
     IPHONEOS_DEPLOYMENT_TARGET: '13.4',
     LD_RUNPATH_SEARCH_PATHS: '"$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"',
     PRODUCT_BUNDLE_IDENTIFIER: `"${extBundleId}"`,
-    PRODUCT_NAME: '$(TARGET_NAME)',
+    PRODUCT_NAME: '"$(TARGET_NAME)"',
     SKIP_INSTALL: 'YES',
     SWIFT_VERSION: '5.0',
     TARGETED_DEVICE_FAMILY: '"1,2"',
