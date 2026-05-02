@@ -253,7 +253,7 @@ function addExtension(proj, mainBundleId) {
   objs.PBXCopyFilesBuildPhase[IDs.copyFilesPhase] = {
     isa: 'PBXCopyFilesBuildPhase',
     buildActionMask: 2147483647,
-    dstPath: '"$(CONTENTS_FOLDER_PATH)/PlugIns"',
+    dstPath: '""',
     dstSubfolderSpec: 13,
     files: [{ value: IDs.embedBuild, comment: `${EXT_NAME}.appex in Embed Foundation Extensions` }],
     name: '"Embed Foundation Extensions"',
