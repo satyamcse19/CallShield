@@ -68,12 +68,14 @@ jobs:
       - name: Verify extension built
         run: |
           APP_PATH="/tmp/CallShield.xcarchive/Products/Applications/CallShield.app"
-          echo "=== PlugIns directory ==="
-          ls "$APP_PATH/PlugIns/" 2>/dev/null || echo "NO PLUGINS DIRECTORY FOUND"
-          echo "=== Extension ==="
-          ls "$APP_PATH/PlugIns/CallShieldExtension.appex/" 2>/dev/null || echo "EXTENSION NOT FOUND"
-          echo "=== Xcode project has extension? ==="
-          grep -c "CallShieldExtension" ios/CallShield.xcodeproj/project.pbxproj || echo "0"
+          echo "=== All .appex files in archive ==="
+          find /tmp/CallShield.xcarchive -name "*.appex" 2>/dev/null || echo "NO APPEX FOUND"
+          echo "=== PlugIns contents ==="
+          ls -la "$APP_PATH/PlugIns/" 2>/dev/null || echo "NO PLUGINS DIR"
+          echo "=== Extension build log ==="
+          grep -i "CallShieldExtension" /tmp/build.log | tail -10 || echo "Nothing in log"
+          echo "=== CopyFiles phase in pbxproj ==="
+          grep -A 5 "Embed Foundation" ios/CallShield.xcodeproj/project.pbxproj | head -20 || echo "Not found"
 
       - name: Inject bundle into app
         run: |
