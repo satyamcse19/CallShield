@@ -14,23 +14,18 @@ export interface BlockedContact {
 }
 
 const STORAGE_KEY = '@callshield_blocked_contacts';
-const APP_GROUP = 'group.callshield.blocked';
-const NUMBERS_KEY = 'blocked_numbers';
-
-// Lazily load SharedGroupPreferences only on iOS (native module not available on web/Android)
-async function syncToAppGroup(contacts: BlockedContact[]) {
+// Sync blocked numbers to UserDefaults so the CallKit extension can read them
+async function syncToExtension(contacts: BlockedContact[]) {
   if (Platform.OS !== 'ios') return;
   try {
-    // Only include active contacts; gather all phone numbers
     const numbers = contacts
       .filter((c) => c.isActive)
       .flatMap((c) => c.phoneNumbers);
-
-    // react-native-shared-group-preferences
     const SharedGroupPreferences = require('react-native-shared-group-preferences').default;
-    await SharedGroupPreferences.setItem(NUMBERS_KEY, numbers, APP_GROUP);
+    // Use standard UserDefaults (no App Groups needed)
+    await SharedGroupPreferences.setItem('callshield_blocked', numbers, null);
   } catch {
-    // Extension sync is best-effort
+    // Best-effort sync
   }
 }
 
@@ -50,7 +45,7 @@ export function useBlockedContacts() {
   const persist = useCallback(async (contacts: BlockedContact[]) => {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
     setBlockedContacts(contacts);
-    await syncToAppGroup(contacts);
+    await syncToExtension(contacts);
   }, []);
 
   const addContact = useCallback(

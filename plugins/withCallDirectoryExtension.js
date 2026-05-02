@@ -16,7 +16,7 @@ function uid() {
 
 // ─── Plugin entry point ───────────────────────────────────────────────────────
 module.exports = function withCallDirectoryExtension(config) {
-  config = addAppGroupEntitlement(config);
+  // App Groups removed - using UserDefaults.standard instead
   config = copyExtensionFiles(config);
   config = patchXcodeProject(config);
   return config;
