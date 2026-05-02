@@ -38,20 +38,16 @@ jobs:
           sudo ln -sf "$NODE_PATH" /usr/local/bin/node
           sudo ln -sf "$(which npm)" /usr/local/bin/npm
 
-      - name: Test bundle script manually
+      - name: Pre-bundle JS with Expo
         run: |
-          cd ios
-          echo "--- Testing bundler ---"
-          export NODE_BINARY=/usr/local/bin/node
-          export PLATFORM_NAME=iphoneos
-          export CONFIGURATION=Release
-          export SRCROOT=$(pwd)
-          export BUILT_PRODUCTS_DIR=/tmp/products
-          export TARGET_NAME=CallShield
-          export UNLOCALIZED_RESOURCES_FOLDER_PATH=CallShield.app
-          mkdir -p /tmp/products/CallShield.app
-          bash ../node_modules/react-native/scripts/react-native-xcode.sh 2>&1 | tail -30
-          echo "Bundle script exit: $?"
+          echo "--- Expo export ---"
+          npx expo export --platform ios --output-dir /tmp/expo-dist 2>&1 | tail -20
+          echo "--- Finding bundle ---"
+          find /tmp/expo-dist -name "*.js" | head -5
+          BUNDLE=$(find /tmp/expo-dist -name "*.js" | head -1)
+          echo "Bundle: $BUNDLE"
+          cp "$BUNDLE" /tmp/main.jsbundle
+          echo "Bundle size: $(du -sh /tmp/main.jsbundle)"
 
       - name: Build iOS app
         run: |
@@ -68,6 +64,8 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             NODE_BINARY=/usr/local/bin/node \
+            SKIP_BUNDLING=1 \
+            BUNDLE_FILE=/tmp/main.jsbundle \
             archive 2>&1 | tee /tmp/build.log
           ls /tmp/CallShield.xcarchive/Products/Applications/
 
