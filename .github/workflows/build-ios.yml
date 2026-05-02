@@ -40,14 +40,11 @@ jobs:
 
       - name: Pre-bundle JS with Expo
         run: |
-          echo "--- Expo export ---"
-          npx expo export --platform ios --output-dir /tmp/expo-dist 2>&1 | tail -20
-          echo "--- Finding bundle ---"
-          find /tmp/expo-dist -type f | head -10
+          npx expo export --platform ios --output-dir /tmp/expo-dist 2>&1 | tail -10
           BUNDLE=$(find /tmp/expo-dist -name "*.hbc" -o -name "*.js" | grep ios | head -1)
-          echo "Bundle found: $BUNDLE"
+          echo "Bundle: $BUNDLE"
           cp "$BUNDLE" /tmp/main.jsbundle
-          echo "Bundle size: $(du -sh /tmp/main.jsbundle)"
+          du -sh /tmp/main.jsbundle
 
       - name: Build iOS app
         run: |
@@ -65,20 +62,26 @@ jobs:
             DEVELOPMENT_TEAM="" \
             NODE_BINARY=/usr/local/bin/node \
             SKIP_BUNDLING=1 \
-            BUNDLE_FILE=/tmp/main.jsbundle \
-            archive 2>&1 | tee /tmp/build.log
+            archive 2>&1 | tee /tmp/build.log | tail -20
           ls /tmp/CallShield.xcarchive/Products/Applications/
+
+      - name: Inject bundle into app
+        run: |
+          APP_PATH="/tmp/CallShield.xcarchive/Products/Applications/CallShield.app"
+          echo "Copying bundle into app..."
+          cp /tmp/main.jsbundle "$APP_PATH/main.jsbundle"
+          # Copy assets
+          cp -r /tmp/expo-dist/assets "$APP_PATH/assets" 2>/dev/null || true
+          echo "App contents:"
+          ls "$APP_PATH" | grep -E "(jsbundle|assets)"
 
       - name: Package as IPA
         run: |
           APP_PATH="/tmp/CallShield.xcarchive/Products/Applications/CallShield.app"
-          echo "Verifying app structure..."
-          ls "$APP_PATH"
           ls "$APP_PATH/Info.plist"
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/CallShield.app
           zip -r CallShield-unsigned.ipa Payload/
-          echo "IPA size:"
           du -sh CallShield-unsigned.ipa
 
       - name: Upload IPA artifact
