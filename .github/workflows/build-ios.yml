@@ -43,9 +43,9 @@ jobs:
           echo "--- Expo export ---"
           npx expo export --platform ios --output-dir /tmp/expo-dist 2>&1 | tail -20
           echo "--- Finding bundle ---"
-          find /tmp/expo-dist -name "*.js" | head -5
-          BUNDLE=$(find /tmp/expo-dist -name "*.js" | head -1)
-          echo "Bundle: $BUNDLE"
+          find /tmp/expo-dist -type f | head -10
+          BUNDLE=$(find /tmp/expo-dist -name "*.hbc" -o -name "*.js" | grep ios | head -1)
+          echo "Bundle found: $BUNDLE"
           cp "$BUNDLE" /tmp/main.jsbundle
           echo "Bundle size: $(du -sh /tmp/main.jsbundle)"
 
