@@ -30,11 +30,17 @@ jobs:
           cd ios
           pod install --repo-update
 
+      - name: Make node available to Xcode scripts
+        run: |
+          NODE_PATH=$(which node)
+          echo "Node found at: $NODE_PATH"
+          sudo ln -sf "$NODE_PATH" /usr/local/bin/node
+          sudo ln -sf $(which npm) /usr/local/bin/npm
+          node --version
+
       - name: Build iOS app (ad-hoc self-signed)
         run: |
           set -o pipefail
-          export NODE_BINARY=$(which node)
-          echo "Node path: $NODE_BINARY"
           xcodebuild \
             -workspace ios/CallShield.xcworkspace \
             -scheme CallShield \
@@ -45,7 +51,7 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
-            archive 2>&1 | tee /tmp/build.log | tail -80
+            archive 2>&1 | tee /tmp/build.log | tail -50
           echo "--- Checking archive ---"
           ls /tmp/CallShield.xcarchive/Products/Applications/
 
