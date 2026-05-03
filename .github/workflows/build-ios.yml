@@ -71,13 +71,14 @@ jobs:
             archive 2>&1 | tee /tmp/build.log | tail -20
           ls /tmp/CallShield.xcarchive/Products/Applications/
 
-      - name: Show Swift errors on failure
+      - name: Show build errors on failure
         if: failure()
         run: |
-          echo "=== Swift / Compilation Errors ==="
-          grep -E "error:|fatal error:" /tmp/build.log | grep -v "^note:" | head -60 || echo "No error lines found"
-          echo "=== Last 50 lines of build log ==="
-          tail -50 /tmp/build.log
+          echo "=== All errors from build log ==="
+          grep "error:" /tmp/build.log | grep -v "note:" | head -80 || echo "No error: lines"
+          echo ""
+          echo "=== Full last 100 lines ==="
+          tail -100 /tmp/build.log
 
       - name: Verify extension built
         run: |
