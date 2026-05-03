@@ -132,11 +132,19 @@ function addNativeModule(proj) {
     }
   }
 
-  // Add file refs to main group so Xcode shows them
+  // Add file refs to the app named group (e.g. "CallShield") so Xcode resolves
+  // paths as ios/CallShield/CallDirectoryReloader.swift, matching where the files
+  // are actually copied by copyNativeModuleFiles.
   const projUuid = proj.getFirstProject().uuid;
   const mainGroupId = objs.PBXProject[projUuid].mainGroup;
-  if (mainGroupId && objs.PBXGroup[mainGroupId]) {
-    objs.PBXGroup[mainGroupId].children.push(
+  const appName = proj.getFirstTarget().firstTarget.name;
+  const appGroupId = Object.keys(objs.PBXGroup || {}).find((key) => {
+    const g = objs.PBXGroup[key];
+    return g && (g.path === appName || g.path === `"${appName}"`);
+  });
+  const targetGroupId = appGroupId || mainGroupId;
+  if (targetGroupId && objs.PBXGroup[targetGroupId]) {
+    objs.PBXGroup[targetGroupId].children.push(
       { value: IDs.swiftRef, comment: 'CallDirectoryReloader.swift' },
       { value: IDs.objcRef, comment: 'CallDirectoryReloader.m' }
     );
