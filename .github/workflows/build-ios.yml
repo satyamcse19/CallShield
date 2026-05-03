@@ -24,6 +24,9 @@ jobs:
 
       - name: Expo Prebuild (generates ios/ folder)
         run: npx expo prebuild --platform ios --no-install
+        env:
+          EXPO_PUBLIC_GIST_ID: ${{ secrets.GIST_ID }}
+          EXPO_PUBLIC_GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
 
       - name: Install CocoaPods
         run: |
@@ -47,6 +50,9 @@ jobs:
           du -sh /tmp/main.jsbundle
 
       - name: Build iOS app
+        env:
+          EXPO_PUBLIC_GIST_ID: ${{ secrets.GIST_ID }}
+          EXPO_PUBLIC_GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
           set -o pipefail
           export NODE_BINARY=/usr/local/bin/node

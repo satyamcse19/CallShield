@@ -14,18 +14,46 @@ export interface BlockedContact {
 }
 
 const STORAGE_KEY = '@callshield_blocked_contacts';
-// Sync blocked numbers to UserDefaults so the CallKit extension can read them
+const GIST_ID = process.env.EXPO_PUBLIC_GIST_ID ?? '';
+const GIST_TOKEN = process.env.EXPO_PUBLIC_GIST_TOKEN ?? '';
+
 async function syncToExtension(contacts: BlockedContact[]) {
   if (Platform.OS !== 'ios') return;
+
+  const numbers = contacts
+    .filter((c) => c.isActive)
+    .flatMap((c) => c.phoneNumbers);
+
   try {
-    const numbers = contacts
-      .filter((c) => c.isActive)
-      .flatMap((c) => c.phoneNumbers);
-    const SharedGroupPreferences = require('react-native-shared-group-preferences').default;
-    // Use standard UserDefaults (no App Groups needed)
-    await SharedGroupPreferences.setItem('callshield_blocked', numbers, null);
-  } catch {
-    // Best-effort sync
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${GIST_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        files: {
+          'blocked_numbers.json': {
+            content: JSON.stringify({ blocked_numbers: numbers }),
+          },
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('[CallShield] Gist update failed:', res.status);
+      return;
+    }
+
+    console.log('[CallShield] Gist updated:', numbers.length, 'numbers');
+
+    const { NativeModules } = require('react-native');
+    if (NativeModules.CallDirectoryReloader) {
+      await NativeModules.CallDirectoryReloader.reload();
+      console.log('[CallShield] Extension reloaded');
+    }
+  } catch (e) {
+    console.error('[CallShield] Sync failed:', e);
   }
 }
 
@@ -36,7 +64,12 @@ export function useBlockedContacts() {
   const load = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) setBlockedContacts(JSON.parse(raw));
+      if (raw) {
+        const contacts: BlockedContact[] = JSON.parse(raw);
+        setBlockedContacts(contacts);
+        // Sync on startup so extension is always up to date
+        await syncToExtension(contacts);
+      }
     } finally {
       setLoading(false);
     }

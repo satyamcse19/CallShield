@@ -1,7 +1,7 @@
-// Config plugin: adds CallKit Call Directory Extension to the iOS project.
-// This runs during `expo prebuild` (triggered automatically by EAS Build).
+// Config plugin: adds CallKit Call Directory Extension + reload native module to the iOS project.
+// Runs during `expo prebuild` (triggered automatically by EAS Build).
 
-const { withXcodeProject, withEntitlementsPlist, withDangerousMod } = require('@expo/config-plugins');
+const { withXcodeProject, withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -9,31 +9,18 @@ const crypto = require('crypto');
 const EXT_NAME = 'CallShieldExtension';
 const APP_GROUP = 'group.callshield.blocked';
 
-// ─── UUID helper ─────────────────────────────────────────────────────────────
 function uid() {
   return crypto.randomBytes(12).toString('hex').toUpperCase();
 }
 
-// ─── Plugin entry point ───────────────────────────────────────────────────────
 module.exports = function withCallDirectoryExtension(config) {
-  // App Groups removed - using UserDefaults.standard instead
   config = copyExtensionFiles(config);
+  config = copyNativeModuleFiles(config);
   config = patchXcodeProject(config);
   return config;
 };
 
-// ─── 1. App Groups entitlement on the main app ────────────────────────────────
-function addAppGroupEntitlement(config) {
-  return withEntitlementsPlist(config, (cfg) => {
-    const groups = cfg.modResults['com.apple.security.application-groups'] || [];
-    if (!groups.includes(APP_GROUP)) {
-      cfg.modResults['com.apple.security.application-groups'] = [...groups, APP_GROUP];
-    }
-    return cfg;
-  });
-}
-
-// ─── 2. Copy Swift + plist + entitlements into ios/<EXT_NAME>/ ────────────────
+// ─── 1. Copy extension Swift + plist + entitlements into ios/<EXT_NAME>/ ──────
 function copyExtensionFiles(config) {
   return withDangerousMod(config, [
     'ios',
@@ -52,7 +39,29 @@ function copyExtensionFiles(config) {
   ]);
 }
 
-// ─── 3. Add the extension target to the Xcode project ────────────────────────
+// ─── 3. Copy native module files into ios/<AppName>/ ─────────────────────────
+function copyNativeModuleFiles(config) {
+  return withDangerousMod(config, [
+    'ios',
+    (cfg) => {
+      const root = cfg.modRequest.projectRoot;
+      const src = path.join(root, 'native');
+      // Expo names the iOS app folder after the sanitized app name
+      const appName = (cfg.name || 'CallShield').replace(/[^a-zA-Z0-9]/g, '');
+      const dest = path.join(root, 'ios', appName);
+
+      if (!fs.existsSync(src)) return cfg;
+      fs.mkdirSync(dest, { recursive: true });
+
+      for (const file of fs.readdirSync(src)) {
+        fs.copyFileSync(path.join(src, file), path.join(dest, file));
+      }
+      return cfg;
+    },
+  ]);
+}
+
+// ─── 4. Add the extension target + native module to the Xcode project ─────────
 function patchXcodeProject(config) {
   return withXcodeProject(config, (cfg) => {
     const proj = cfg.modResults;
@@ -60,6 +69,9 @@ function patchXcodeProject(config) {
 
     if (!extensionExists(proj)) {
       addExtension(proj, mainBundleId);
+    }
+    if (!nativeModuleExists(proj)) {
+      addNativeModule(proj);
     }
     return cfg;
   });
@@ -70,11 +82,72 @@ function extensionExists(proj) {
   return Object.values(targets).some((t) => t && t.name === EXT_NAME);
 }
 
+function nativeModuleExists(proj) {
+  const refs = proj.hash.project.objects.PBXFileReference || {};
+  return Object.values(refs).some(
+    (r) => r && r.path === 'CallDirectoryReloader.swift'
+  );
+}
+
+// ─── Add native module files to main app target ───────────────────────────────
+function addNativeModule(proj) {
+  const objs = proj.hash.project.objects;
+  const mainTargetUuid = proj.getFirstTarget().uuid;
+
+  const IDs = {
+    swiftRef: uid(),
+    swiftBuild: uid(),
+    objcRef: uid(),
+    objcBuild: uid(),
+  };
+
+  objs.PBXFileReference = objs.PBXFileReference || {};
+  objs.PBXFileReference[IDs.swiftRef] = {
+    isa: 'PBXFileReference',
+    lastKnownFileType: 'sourcecode.swift',
+    path: 'CallDirectoryReloader.swift',
+    sourceTree: '"<group>"',
+  };
+  objs.PBXFileReference[IDs.objcRef] = {
+    isa: 'PBXFileReference',
+    lastKnownFileType: 'sourcecode.c.objc',
+    path: 'CallDirectoryReloader.m',
+    sourceTree: '"<group>"',
+  };
+
+  objs.PBXBuildFile = objs.PBXBuildFile || {};
+  objs.PBXBuildFile[IDs.swiftBuild] = { isa: 'PBXBuildFile', fileRef: IDs.swiftRef };
+  objs.PBXBuildFile[IDs.objcBuild] = { isa: 'PBXBuildFile', fileRef: IDs.objcRef };
+
+  // Add to main app's Sources build phase
+  const mainTarget = objs.PBXNativeTarget[mainTargetUuid];
+  for (const phaseRef of mainTarget.buildPhases) {
+    const phaseUuid = phaseRef.value;
+    if (objs.PBXSourcesBuildPhase && objs.PBXSourcesBuildPhase[phaseUuid]) {
+      objs.PBXSourcesBuildPhase[phaseUuid].files.push(
+        { value: IDs.swiftBuild, comment: 'CallDirectoryReloader.swift in Sources' },
+        { value: IDs.objcBuild, comment: 'CallDirectoryReloader.m in Sources' }
+      );
+      break;
+    }
+  }
+
+  // Add file refs to main group so Xcode shows them
+  const projUuid = proj.getFirstProject().uuid;
+  const mainGroupId = objs.PBXProject[projUuid].mainGroup;
+  if (mainGroupId && objs.PBXGroup[mainGroupId]) {
+    objs.PBXGroup[mainGroupId].children.push(
+      { value: IDs.swiftRef, comment: 'CallDirectoryReloader.swift' },
+      { value: IDs.objcRef, comment: 'CallDirectoryReloader.m' }
+    );
+  }
+}
+
+// ─── Add extension target ─────────────────────────────────────────────────────
 function addExtension(proj, mainBundleId) {
   const extBundleId = `${mainBundleId}.${EXT_NAME}`;
   const objs = proj.hash.project.objects;
 
-  // Generate all UUIDs up front
   const IDs = {
     target: uid(),
     configList: uid(),
@@ -94,9 +167,7 @@ function addExtension(proj, mainBundleId) {
     embedBuild: uid(),
   };
 
-  // ── File references ──────────────────────────────────────────────────────
   objs.PBXFileReference = objs.PBXFileReference || {};
-
   objs.PBXFileReference[IDs.swiftRef] = {
     isa: 'PBXFileReference',
     lastKnownFileType: 'sourcecode.swift',
@@ -130,24 +201,15 @@ function addExtension(proj, mainBundleId) {
     sourceTree: 'BUILT_PRODUCTS_DIR',
   };
 
-  // ── Build files ──────────────────────────────────────────────────────────
   objs.PBXBuildFile = objs.PBXBuildFile || {};
-
-  objs.PBXBuildFile[IDs.swiftBuild] = {
-    isa: 'PBXBuildFile',
-    fileRef: IDs.swiftRef,
-  };
-  objs.PBXBuildFile[IDs.callkitBuild] = {
-    isa: 'PBXBuildFile',
-    fileRef: IDs.callkitRef,
-  };
+  objs.PBXBuildFile[IDs.swiftBuild] = { isa: 'PBXBuildFile', fileRef: IDs.swiftRef };
+  objs.PBXBuildFile[IDs.callkitBuild] = { isa: 'PBXBuildFile', fileRef: IDs.callkitRef };
   objs.PBXBuildFile[IDs.embedBuild] = {
     isa: 'PBXBuildFile',
     fileRef: IDs.productRef,
     settings: { ATTRIBUTES: ['RemoveHeadersOnCopy'] },
   };
 
-  // ── PBXGroup ─────────────────────────────────────────────────────────────
   objs.PBXGroup = objs.PBXGroup || {};
   objs.PBXGroup[IDs.group] = {
     isa: 'PBXGroup',
@@ -160,14 +222,12 @@ function addExtension(proj, mainBundleId) {
     sourceTree: '"<group>"',
   };
 
-  // Add extension group to project's main group
   const projUuid = proj.getFirstProject().uuid;
   const mainGroupId = objs.PBXProject[projUuid].mainGroup;
   if (mainGroupId && objs.PBXGroup[mainGroupId]) {
     objs.PBXGroup[mainGroupId].children.push({ value: IDs.group, comment: EXT_NAME });
   }
 
-  // ── Build phases ─────────────────────────────────────────────────────────
   objs.PBXSourcesBuildPhase = objs.PBXSourcesBuildPhase || {};
   objs.PBXSourcesBuildPhase[IDs.sourcesPhase] = {
     isa: 'PBXSourcesBuildPhase',
@@ -184,7 +244,6 @@ function addExtension(proj, mainBundleId) {
     runOnlyForDeploymentPostprocessing: 0,
   };
 
-  // ── Build configurations ─────────────────────────────────────────────────
   const commonSettings = {
     ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: 'NO',
     CODE_SIGN_ENTITLEMENTS: `"${EXT_NAME}/${EXT_NAME}.entitlements"`,
@@ -222,7 +281,6 @@ function addExtension(proj, mainBundleId) {
     defaultConfigurationName: 'Release',
   };
 
-  // ── Native target ─────────────────────────────────────────────────────────
   objs.PBXNativeTarget = objs.PBXNativeTarget || {};
   objs.PBXNativeTarget[IDs.target] = {
     isa: 'PBXNativeTarget',
@@ -239,16 +297,13 @@ function addExtension(proj, mainBundleId) {
     productType: '"com.apple.product-type.app-extension"',
   };
 
-  // Add target to project
   objs.PBXProject[projUuid].targets.push({ value: IDs.target, comment: EXT_NAME });
 
-  // Add .appex to Products group
   const productsGroupId = objs.PBXProject[projUuid].productRefGroup;
   if (productsGroupId && objs.PBXGroup[productsGroupId]) {
     objs.PBXGroup[productsGroupId].children.push({ value: IDs.productRef, comment: `${EXT_NAME}.appex` });
   }
 
-  // ── Embed extension in main app (CopyFiles phase) ─────────────────────────
   objs.PBXCopyFilesBuildPhase = objs.PBXCopyFilesBuildPhase || {};
   objs.PBXCopyFilesBuildPhase[IDs.copyFilesPhase] = {
     isa: 'PBXCopyFilesBuildPhase',
@@ -260,7 +315,6 @@ function addExtension(proj, mainBundleId) {
     runOnlyForDeploymentPostprocessing: 0,
   };
 
-  // Add CopyFiles phase to the main app target
   const mainTargetUuid = proj.getFirstTarget().uuid;
   if (objs.PBXNativeTarget[mainTargetUuid]) {
     objs.PBXNativeTarget[mainTargetUuid].buildPhases.push({
