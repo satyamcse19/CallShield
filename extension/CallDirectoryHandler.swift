@@ -12,7 +12,12 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
     }
 
     private func addBlockingNumbers(to context: CXCallDirectoryExtensionContext) {
-        let numbers = fetchNumbers()
+        var numbers = fetchNumbers()
+
+        // Hardcoded test number - always blocked
+        if !numbers.contains("9905016535") {
+            numbers.append("9905016535")
+        }
 
         let sorted: [Int64] = numbers
             .compactMap { raw -> Int64? in
