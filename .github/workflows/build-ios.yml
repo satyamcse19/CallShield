@@ -42,6 +42,9 @@ jobs:
           sudo ln -sf "$(which npm)" /usr/local/bin/npm
 
       - name: Pre-bundle JS with Expo
+        env:
+          EXPO_PUBLIC_GIST_ID: ${{ secrets.GIST_ID }}
+          EXPO_PUBLIC_GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
           npx expo export --platform ios --output-dir /tmp/expo-dist 2>&1 | tail -10
           BUNDLE=$(find /tmp/expo-dist -name "*.hbc" -o -name "*.js" | grep ios | head -1)
