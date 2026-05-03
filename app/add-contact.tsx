@@ -180,14 +180,14 @@ export default function AddContactScreen() {
                   onPress={() => handleAdd(item)}
                 >
                   <Text style={[styles.addBtnText, blocked && styles.addBtnTextBlocked]}>
-                    {blocked ? 'Added ✓' : 'Block'}
+                    {blocked ? 'Added ✓' : 'Mark Spam'}
                   </Text>
                 </Pressable>
               </View>
 
               {!blocked && (
                 <View style={styles.simWrap}>
-                  <Text style={styles.simLabel}>Block on:</Text>
+                  <Text style={styles.simLabel}>Filter on:</Text>
                   <SimSelector value={sim} onChange={(s) => toggleSim(item.id, s)} compact />
                 </View>
               )}

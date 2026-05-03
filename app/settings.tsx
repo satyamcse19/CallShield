@@ -32,23 +32,23 @@ export default function SettingsScreen() {
         {/* How it works */}
         <Text style={styles.sectionTitle}>How CallShield Works</Text>
         <View style={styles.card}>
-          <Row icon="🔕" text="Added contacts are sent directly to voicemail when they call." />
+          <Row icon="🔔" text="Spam contacts ring but show 'Spam - CallShield' label on screen." />
+          <Divider />
+          <Row icon="📬" text="Don't pick up — call goes to voicemail automatically after timeout." />
           <Divider />
           <Row icon="📱" text="Works on both SIM 1 and SIM 2 (dual eSIM supported)." />
           <Divider />
-          <Row icon="🌙" text="Active in all phone modes: Normal, Silent, and Sleep." />
-          <Divider />
-          <Row icon="⏸️" text="You can pause blocking for any contact using the toggle." />
+          <Row icon="⏸️" text="You can pause spam filtering for any contact using the toggle." />
         </View>
 
         {/* SIM Info */}
         <Text style={styles.sectionTitle}>SIM Selection Guide</Text>
         <View style={styles.card}>
-          <SimRow color={Colors.simAll} label="All SIMs" desc="Blocks calls on both SIM 1 and SIM 2." />
+          <SimRow color={Colors.simAll} label="All SIMs" desc="Spam label shows on both SIM 1 and SIM 2 calls." />
           <Divider />
-          <SimRow color={Colors.sim1} label="SIM 1" desc="Only blocks calls coming on SIM 1. SIM 2 calls come through normally." />
+          <SimRow color={Colors.sim1} label="SIM 1" desc="Spam filter on SIM 1 only. SIM 2 calls come through normally." />
           <Divider />
-          <SimRow color={Colors.sim2} label="SIM 2" desc="Only blocks calls coming on SIM 2. SIM 1 calls come through normally." />
+          <SimRow color={Colors.sim2} label="SIM 2" desc="Spam filter on SIM 2 only. SIM 1 calls come through normally." />
         </View>
 
         {/* iOS Notice */}
@@ -56,30 +56,30 @@ export default function SettingsScreen() {
         <View style={[styles.card, styles.warningCard]}>
           <Text style={styles.warningIcon}>⚠️</Text>
           <Text style={styles.warningText}>
-            On iPhone, iOS does not allow apps to silently intercept cellular calls at the OS level without a CallKit extension. To enable full call blocking, you must enable{' '}
+            Enable{' '}
             <Text style={styles.bold}>Settings {'>'} Phone {'>'} Call Blocking & Identification</Text>{' '}
-            and enable <Text style={styles.bold}>CallShield</Text> in that list after installing the app.
+            and turn on <Text style={styles.bold}>CallShield</Text>. Without this, spam labels will not show on incoming calls.
           </Text>
           <Text style={[styles.warningText, { marginTop: 8 }]}>
-            Per-SIM filtering (SIM 1 / SIM 2) is stored in the app. iOS CallKit applies blocking to all lines — full per-SIM enforcement requires iOS system-level support.
+            When a spam number calls, your phone rings with the label "Spam - CallShield". Simply don't answer — it will go to voicemail after ~20 seconds.
           </Text>
         </View>
 
         {/* Stats */}
         <Text style={styles.sectionTitle}>Statistics</Text>
         <View style={styles.card}>
-          <Row icon="🚫" text={`${blockedContacts.length} contact${blockedContacts.length !== 1 ? 's' : ''} in blocked list`} />
+          <Row icon="🔖" text={`${blockedContacts.length} contact${blockedContacts.length !== 1 ? 's' : ''} marked as spam`} />
           <Divider />
           <Row
             icon="✅"
-            text={`${blockedContacts.filter((c) => c.isActive).length} active blocks`}
+            text={`${blockedContacts.filter((c) => c.isActive).length} currently active`}
           />
         </View>
 
         {/* Danger Zone */}
         <Text style={styles.sectionTitle}>Danger Zone</Text>
         <Pressable style={styles.dangerBtn} onPress={clearAll}>
-          <Text style={styles.dangerBtnText}>🗑️  Clear All Blocked Contacts</Text>
+          <Text style={styles.dangerBtnText}>🗑️  Clear All Spam Contacts</Text>
         </Pressable>
 
         <Text style={styles.footer}>CallShield v1.0.0</Text>

@@ -30,7 +30,8 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
             .sorted()
 
         for number in sorted {
-            context.addBlockingEntry(withNextSequentialPhoneNumber: number)
+            context.addIdentificationEntry(withNextSequentialPhoneNumber: number,
+                                           label: "Spam - CallShield")
         }
     }
 
