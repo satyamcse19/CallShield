@@ -22,11 +22,23 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Inject Gist credentials into app.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            app.expo.extra.gistId = process.env.GIST_ID;
+            app.expo.extra.gistToken = process.env.GIST_TOKEN;
+            fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
+            console.log('gistId injected:', !!process.env.GIST_ID);
+            console.log('gistToken injected:', !!process.env.GIST_TOKEN);
+          "
+        env:
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+
       - name: Expo Prebuild (generates ios/ folder)
         run: npx expo prebuild --platform ios --no-install
-        env:
-          EXPO_PUBLIC_GIST_ID: ${{ secrets.GIST_ID }}
-          EXPO_PUBLIC_GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
 
       - name: Install CocoaPods
         run: |
@@ -42,9 +54,6 @@ jobs:
           sudo ln -sf "$(which npm)" /usr/local/bin/npm
 
       - name: Pre-bundle JS with Expo
-        env:
-          EXPO_PUBLIC_GIST_ID: ${{ secrets.GIST_ID }}
-          EXPO_PUBLIC_GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
           npx expo export --platform ios --output-dir /tmp/expo-dist 2>&1 | tail -10
           BUNDLE=$(find /tmp/expo-dist -name "*.hbc" -o -name "*.js" | grep ios | head -1)
@@ -53,9 +62,6 @@ jobs:
           du -sh /tmp/main.jsbundle
 
       - name: Build iOS app
-        env:
-          EXPO_PUBLIC_GIST_ID: ${{ secrets.GIST_ID }}
-          EXPO_PUBLIC_GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
           set -o pipefail
           export NODE_BINARY=/usr/local/bin/node

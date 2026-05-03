@@ -13,9 +13,11 @@ export interface BlockedContact {
   isActive: boolean;
 }
 
+import Constants from 'expo-constants';
+
 const STORAGE_KEY = '@callshield_blocked_contacts';
-const GIST_ID = process.env.EXPO_PUBLIC_GIST_ID ?? '';
-const GIST_TOKEN = process.env.EXPO_PUBLIC_GIST_TOKEN ?? '';
+const GIST_ID = (Constants.expoConfig?.extra?.gistId as string) ?? '';
+const GIST_TOKEN = (Constants.expoConfig?.extra?.gistToken as string) ?? '';
 
 async function syncToExtension(contacts: BlockedContact[]) {
   if (Platform.OS !== 'ios') return;
