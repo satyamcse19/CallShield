@@ -39,16 +39,15 @@ function copyExtensionFiles(config) {
   ]);
 }
 
-// ─── 3. Copy native module files into ios/<AppName>/ ─────────────────────────
+// ─── 3. Copy native module files into ios/ (project root, matches mainGroup path) ─
 function copyNativeModuleFiles(config) {
   return withDangerousMod(config, [
     'ios',
     (cfg) => {
       const root = cfg.modRequest.projectRoot;
       const src = path.join(root, 'native');
-      // Expo names the iOS app folder after the sanitized app name
-      const appName = (cfg.name || 'CallShield').replace(/[^a-zA-Z0-9]/g, '');
-      const dest = path.join(root, 'ios', appName);
+      // Copy to ios/ root — the Xcode mainGroup resolves file refs relative to here.
+      const dest = path.join(root, 'ios');
 
       if (!fs.existsSync(src)) return cfg;
       fs.mkdirSync(dest, { recursive: true });
@@ -132,19 +131,12 @@ function addNativeModule(proj) {
     }
   }
 
-  // Add file refs to the app named group (e.g. "CallShield") so Xcode resolves
-  // paths as ios/CallShield/CallDirectoryReloader.swift, matching where the files
-  // are actually copied by copyNativeModuleFiles.
+  // Add file refs to mainGroup — paths resolve relative to ios/ which is where
+  // copyNativeModuleFiles places the physical files.
   const projUuid = proj.getFirstProject().uuid;
   const mainGroupId = objs.PBXProject[projUuid].mainGroup;
-  const appName = proj.getFirstTarget().firstTarget.name;
-  const appGroupId = Object.keys(objs.PBXGroup || {}).find((key) => {
-    const g = objs.PBXGroup[key];
-    return g && (g.path === appName || g.path === `"${appName}"`);
-  });
-  const targetGroupId = appGroupId || mainGroupId;
-  if (targetGroupId && objs.PBXGroup[targetGroupId]) {
-    objs.PBXGroup[targetGroupId].children.push(
+  if (mainGroupId && objs.PBXGroup[mainGroupId]) {
+    objs.PBXGroup[mainGroupId].children.push(
       { value: IDs.swiftRef, comment: 'CallDirectoryReloader.swift' },
       { value: IDs.objcRef, comment: 'CallDirectoryReloader.m' }
     );
