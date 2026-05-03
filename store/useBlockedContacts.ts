@@ -33,7 +33,7 @@ async function syncToExtension(contacts: BlockedContact[]) {
       },
       body: JSON.stringify({
         files: {
-          'blocked_numbers.json': {
+          'gistfile1.txt': {
             content: JSON.stringify({ blocked_numbers: numbers }),
           },
         },

@@ -3,7 +3,8 @@ import CallKit
 
 class CallDirectoryHandler: CXCallDirectoryProvider {
     private let cacheKey = "cached_blocked_numbers"
-    private let gistURL = "https://gist.githubusercontent.com/satyamcse19/5b6e0adc32ed506f190d82d359ae5c96/raw/blocked_numbers.json"
+    // Gist API URL - works for public gists, no auth needed, filename-agnostic
+    private let gistAPIURL = "https://api.github.com/gists/5b6e0adc32ed506f190d82d359ae5c96"
 
     override func beginRequest(with context: CXCallDirectoryExtensionContext) {
         addBlockingNumbers(to: context)
@@ -17,7 +18,7 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
             .compactMap { raw -> Int64? in
                 let digits = raw.filter { $0.isNumber }
                 guard digits.count >= 7 else { return nil }
-                // CallKit needs E.164 (with country code). 10-digit → assume India (+91).
+                // CallKit needs E.164 with country code. 10-digit → assume India (+91).
                 let e164 = digits.count == 10 ? "91" + digits : digits
                 return Int64(e164)
             }
@@ -29,20 +30,25 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
     }
 
     private func fetchNumbers() -> [String] {
-        guard let url = URL(string: gistURL) else { return cachedNumbers() }
+        guard let url = URL(string: gistAPIURL) else { return cachedNumbers() }
 
         let semaphore = DispatchSemaphore(value: 0)
         var fetched: [String]? = nil
 
         var request = URLRequest(url: url, timeoutInterval: 10)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
         URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
             defer { semaphore.signal() }
             guard let data = data,
-                  let json = try? JSONDecoder().decode(GistPayload.self, from: data) else { return }
-            fetched = json.blocked_numbers
-            self?.cacheNumbers(json.blocked_numbers)
+                  let gist = try? JSONDecoder().decode(GistResponse.self, from: data),
+                  let firstFile = gist.files.values.first,
+                  let content = firstFile.content,
+                  let payload = try? JSONDecoder().decode(GistPayload.self, from: Data(content.utf8))
+            else { return }
+            fetched = payload.blocked_numbers
+            self?.cacheNumbers(payload.blocked_numbers)
         }.resume()
 
         semaphore.wait()
@@ -56,6 +62,14 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
     private func cacheNumbers(_ numbers: [String]) {
         UserDefaults.standard.set(numbers, forKey: cacheKey)
     }
+}
+
+private struct GistResponse: Decodable {
+    let files: [String: GistFile]
+}
+
+private struct GistFile: Decodable {
+    let content: String?
 }
 
 private struct GistPayload: Decodable {
